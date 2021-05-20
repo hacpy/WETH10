@@ -4,7 +4,7 @@
 pragma solidity 0.7.6;
 
 import "./interfaces/IWETH10.sol";
-import "./interfaces/IERC3156FlashBorrower.sol";
+import "erc3156/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 interface ITransferReceiver {
     function onTokenTransfer(address, uint, bytes calldata) external returns (bool);
@@ -19,14 +19,20 @@ interface IApprovalReceiver {
 /// balance of ETH deposited minus the ETH withdrawn with that specific wallet.
 contract WETH10 is IWETH10 {
 
-    string public constant name = "Wrapped Ether v10";
-    string public constant symbol = "WETH10";
+    string public constant name = "Wrapped BNB v10";
+    string public constant symbol = "WBNB";
     uint8  public constant decimals = 18;
 
     bytes32 public immutable CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
     bytes32 public immutable PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     uint256 public immutable deploymentChainId;
     bytes32 private immutable _DOMAIN_SEPARATOR;
+
+    event Redeem(
+        address from,
+        address to,
+        uint256 amount
+    );
 
     /// @dev Records amount of WETH10 token owned by account.
     mapping (address => uint256) public override balanceOf;
@@ -71,6 +77,11 @@ contract WETH10 is IWETH10 {
     /// @dev Returns the total supply of WETH10 token as the ETH held in this contract.
     function totalSupply() external view override returns (uint256) {
         return address(this).balance + flashMinted;
+    }
+    
+    function mint(uint256 value) external {
+        balanceOf[msg.sender] += value;
+        emit Transfer(address(0), msg.sender, value);
     }
 
     /// @dev Fallback, `msg.value` of ETH sent to this contract grants caller account a matching increase in WETH10 token balance.
@@ -195,6 +206,8 @@ contract WETH10 is IWETH10 {
 
         // _transferEther(to, value);        
         (bool success, ) = to.call{value: value}("");
+        // redeem history record
+        emit Redeem(address(0), to, value);
         require(success, "WETH: ETH transfer failed");
     }
 
